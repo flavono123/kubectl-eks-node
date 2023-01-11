@@ -91,7 +91,6 @@ nodeinfo() {
   tempfile=$(mktemp)
 
   kubectl get node "$nodename" -oyaml > "$tempfile" && \
-    echo "$tempfile" && \
     nodename=$nodename yq -ojson '.metadata.labels |
       {
         env(nodename): {
