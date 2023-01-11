@@ -1,0 +1,73 @@
+#!/usr/bin/env sh
+
+usage() {
+  cat <<EOF
+Print the information on a eks node as JSON
+
+Usage:
+  eks-node <nodename>
+
+Examples:
+  # Print the information on a eks node as JSON
+  $ kubectl eks-node ip-1-23-456-789.your.domain
+  {
+  "ip-1-23-456-789.your.domain": {
+    "nodegroup": "awsomenode",
+    "instance_type": "t3.small",
+    "zone": "ap-northeast-2a"
+  }
+}
+EOF
+}
+
+yq_missing() {
+  cat <<EOF
+You must install yq to use this plugin:
+
+    https://github.com/mikefarah/yq#install
+
+INSTALLATION
+
+Homebrew (macOS) and Linuxbrew (Linux):
+
+    brew install yq
+EOF
+}
+
+invaild_nodename_pattern() {
+  nodename=$1
+  nodename_pattern=$2
+
+  cat <<EOF
+'$nodename' should match to the following node name pattern:
+/$2/
+EOF
+}
+
+if [ "$#" -eq 1 ]; then
+  # Early return if yq is not installed
+  command -v > /dev/null || { yq_mssing; exit 1; }
+
+  nodename_pattern='ip-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}-[0-9]{1,3}(\.\w+)+'
+  nodename=$1
+
+  echo "$nodename" | grep -Eq "$nodename_pattern" \
+    || { invaild_nodename_pattern "$nodename", "$nodename_pattern"; }
+
+  tempfile=$(mktemp)
+
+  kubectl get node "$nodename" -oyaml > "$tempfile" && \
+    echo "$tempfile" && \
+    nodename=$nodename yq -ojson '.metadata.labels |
+      {
+        env(nodename): {
+          "nodegroup": ."eks.amazonaws.com/nodegroup",
+          "instance_type": ."beta.kubernetes.io/instance-type",
+          "zone": ."topology.kubernetes.io/zone"
+        }
+      }' "$tempfile"
+
+  rm "$tempfile"
+else
+  usage
+fi
