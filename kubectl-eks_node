@@ -11,6 +11,7 @@ Print the information on a eks node as JSON
 Usage:
   eks-node <nodename>
   eks-node <filter-type> <value>
+  eks-node po|pod <podname>
 
 Filter types:
   - avaliability_zone(az)
@@ -18,7 +19,7 @@ Filter types:
   - nodegroup(ng)
 
 Examples:
-  # Print the information on a eks node as JSON
+  # 1. Print the information on a eks node as JSON
   $ kubectl eks-node ip-172-16-200-10.your.domain
   {
     "ip-172-16-200-10.your.domain": {
@@ -28,7 +29,7 @@ Examples:
     }
   }
 
-  # Or filter nodes by an availability zone
+  # 2. Filter nodes by an availability zone
   $ k eks-node az ap-northeast-2a
   NAME                           STATUS   ROLES    AGE    VERSION
   ip-172-16-200-10.your.domain   Ready    <none>   3d4h   v1.23.9-eks-ba74326
@@ -43,10 +44,20 @@ Examples:
   ip-172-16-200-12.your.domain   Ready    <none>   5d7h   v1.23.9-eks-ba74326
   ip-172-16-201-11.your.domain   Ready    <none>   3d4h   v1.23.9-eks-ba74326
 
-  # Or by a nodegroup
+  # By a nodegroup
   $ k eks-node ng awsomenode
   NAME                           STATUS   ROLES    AGE    VERSION
   ip-172-16-200-10.your.domain   Ready    <none>   3d4h   v1.23.9-eks-ba74326
+
+  # Or print the node information where the specified pod is running
+  $ k eks-node po awsomepod-xxxxxxxxxx-yyyyy
+  {
+    "ip-172-16-200-10.your.domain": {
+      "nodegroup": "awsomenode",
+      "instance_type": "t3.small",
+      "zone": "ap-northeast-2a"
+    }
+  }
 EOF
 }
 
@@ -110,19 +121,46 @@ nodeselector() {
   case $key in
     az | availablity_zone)
       label_selector="topology.kubernetes.io/zone=$value"
+      kubectl get node -l "$label_selector"
       ;;
     ins | instance_type)
       label_selector="beta.kubernetes.io/instance-type=$value"
+      kubectl get node -l "$label_selector"
       ;;
     ng | nodegroup)
       label_selector="eks.amazonaws.com/nodegroup=$value"
+      kubectl get node -l "$label_selector"
+      ;;
+    po | pod)
+      tempfile=$(mktemp)
+
+      kubectl get pod -A -oyaml | \
+        podname=$value yq '.items[] |
+          select(.metadata.name==env(podname)).spec.nodeName
+        ' > "$tempfile"
+
+
+      test -s "$tempfile" \
+        || { printf "\033[0;31mError from server (NotFound): pods \"%s\" not found\033[0m" "$value" && exit 1; }
+
+      nodename=$(cat "$tempfile")
+      kubectl get node "$nodename" -oyaml |
+        nodename=$nodename yq -ojson '.metadata.labels |
+          {
+            env(nodename): {
+              "nodegroup": ."eks.amazonaws.com/nodegroup",
+              "instance_type": ."beta.kubernetes.io/instance-type",
+              "zone": ."topology.kubernetes.io/zone"
+            }
+          }'
+
+      rm "$tempfile"
       ;;
     *)
       usage
       exit 1
   esac
 
-  kubectl get node -l "$label_selector"
 }
 
 
