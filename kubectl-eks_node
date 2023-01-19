@@ -25,7 +25,11 @@ Examples:
     "ip-172-16-200-10.your.domain": {
       "nodegroup": "awsomenode",
       "instance_type": "t3.small",
-      "zone": "ap-northeast-2a"
+      "zone": "ap-northeast-2a",
+      "pods": [
+        "pod-a",
+        "pod-b"
+      ]
     }
   }
 
@@ -99,19 +103,24 @@ nodeinfo() {
   echo "$nodename" | grep -Eq "$nodename_pattern" \
     || { invaild_nodename_pattern "$nodename", "$nodename_pattern"; }
 
-  tempfile=$(mktemp)
+  nodetmp=$(mktemp)
+  podstmp=$(mktemp)
 
-  kubectl get node "$nodename" -oyaml > "$tempfile" && \
-    nodename=$nodename yq -ojson '.metadata.labels |
+  kubectl get pods -A -oyaml | \
+    nodename=$nodename yq '.items[] |
+    select(.spec.nodeName==env(nodename)) | [.metadata.name]' >  "$podstmp"
+  kubectl get node "$nodename" -oyaml > "$nodetmp" && \
+    nodename=$nodename pods=$(cat "$podstmp") yq -ojson '.metadata.labels |
       {
         env(nodename): {
           "nodegroup": ."eks.amazonaws.com/nodegroup",
           "instance_type": ."beta.kubernetes.io/instance-type",
-          "zone": ."topology.kubernetes.io/zone"
+          "zone": ."topology.kubernetes.io/zone",
+          "pods": env(pods)
         }
-      }' "$tempfile"
+      }' "$nodetmp"
 
-  rm "$tempfile"
+  rm "$nodetmp" "$podstmp"
 }
 
 nodeselector() {
