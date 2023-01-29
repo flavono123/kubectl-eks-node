@@ -12,6 +12,7 @@ Usage:
   eks-node <nodename>
   eks-node <filter-type> <value>
   eks-node po|pod <podname>
+  eks-node -h|--help
 
 Filter types:
   - avaliability_zone(az)
@@ -183,7 +184,14 @@ nodeselector() {
 ##########
 
 if [ "$#" -eq 1 ]; then
-  nodeinfo "$1"
+  case "$1" in
+    -h | --help)
+      usage
+      ;;
+    *)
+      nodeinfo "$1"
+      ;;
+  esac
 elif [ "$#" -eq 2 ]; then
   nodeselector "$1" "$2"
 else
