@@ -1,5 +1,17 @@
 # `kubectl eks-node`
 
+## Install
+
+### Get the latest script
+```sh
+$ wget -O /usr/local/bin/kubectl-eks_node https://raw.githubusercontent.com/flavono123/kubectl-eks-node/main/kubectl-eks_node && chmod +x /usr/local/bin/kubectl-eks_node
+```
+
+### Krew
+- Preparing
+
+## Usage
+
 ```sh
 Print the information on a eks node as JSON
 
