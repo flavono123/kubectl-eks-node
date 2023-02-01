@@ -8,7 +8,12 @@ $ wget -O /usr/local/bin/kubectl-eks_node https://raw.githubusercontent.com/flav
 ```
 
 ### Krew
-- Preparing
+- From [the custom index](https://github.com/flavono123/flew-index)
+
+```sh
+$ k krew index add flew https://github.com/flavono123/flew-index.git
+$ k krew install flew/eks-node
+```
 
 ## Usage
 
