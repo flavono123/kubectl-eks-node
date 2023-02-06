@@ -159,15 +159,8 @@ nodeselector() {
         || { printf "\033[0;31mError from server (NotFound): pods \"%s\" not found\033[0m" "$value" && exit 1; }
 
       nodename=$(cat "$tempfile")
-      kubectl get node "$nodename" -oyaml |
-        nodename=$nodename yq -ojson '.metadata.labels |
-          {
-            env(nodename): {
-              "nodegroup": ."eks.amazonaws.com/nodegroup",
-              "instance_type": ."beta.kubernetes.io/instance-type",
-              "zone": ."topology.kubernetes.io/zone"
-            }
-          }'
+
+      nodeinfo "$nodename"
 
       rm "$tempfile"
       ;;
